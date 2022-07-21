@@ -24,7 +24,7 @@ class Shape_Generator():
         self.N = N
         
         self.u_arr = np.linspace(0, 1, N)
-        self.du = self.u_arr[1] - self.u_arr[0]
+        self.ds_h = self.u_arr[1] - self.u_arr[0]
                         
         self.L = L
                                         
@@ -49,13 +49,13 @@ class Shape_Generator():
         for straight-line configuration
         '''
                         
-        self.x = lambda u: u
+        self.r = lambda u: u
         self.y = lambda u: 0*u
         self.z = lambda u: 0*u
         
         self.s = lambda u: u
         
-        self.x_vec = lambda u: np.array([self.x(u), self.y(u), self.z(u)])
+        self.x_vec = lambda u: np.array([self.r(u), self.y(u), self.z(u)])
         
         self.tx = lambda u: 1 + 0*u
         self.ty = lambda u: 0*u
@@ -73,19 +73,19 @@ class Shape_Generator():
         self.R = self.L/np.pi
         self.k = self.L/self.R
 
-        self.x = lambda u: self.R*np.cos(self.k*u)
+        self.r = lambda u: self.R*np.cos(self.k*u)
         self.y = lambda u: self.R*np.sin(self.k*u)
         self.z = lambda u: 0*u
         
         self.s = lambda u: self.R*self.k * u
         
-        self.x_vec = lambda u: np.array([self.x(u), self.y(u), self.z(u)])
+        self.x_vec = lambda u: np.array([self.r(u), self.y(u), self.z(u)])
         
         self.tx = lambda u: - np.sin(self.k*u)
         self.ty = lambda u: + np.cos(self.k*u)
         self.tz = lambda u: 0 * u 
 
-        self.abs_x_u = lambda u: self.R*self.k 
+        self.e = lambda u: self.R*self.k 
 
         self.t = lambda u: np.array([self.tx(u), self.ty(u), self.tz(u)])
                                                                       
@@ -95,7 +95,7 @@ class Shape_Generator():
         from analytic expressions
         '''
                                 
-        self.x_arr = self.x(self.u_arr)
+        self.x_arr = self.r(self.u_arr)
         self.y_arr = self.y(self.u_arr)
         self.z_arr = self.z(self.u_arr)
                 

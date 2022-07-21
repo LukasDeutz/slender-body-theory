@@ -17,9 +17,13 @@ from matplotlib import cm
 from timeit import Timer
 
 from prolate_spheroid import calc_c_n, calc_c_t
-from slender_body_theory.slender_body_theory import DEFAULT_R0, SBT_Integrator, SBT_Matrix
+from slender_body_theory.slender_body_theory import DEFAULT_R_MAX, SBT_IntegratorKirchhoff, SBT_MatrixKirchhoff, SBT_IntegratorCosserat,\
+    SBT_MatrixCosserat
 from slender_body_theory.shape_generator import ShapeGenerator
 
+
+#------------------------------------------------------------------------------ 
+# Test Kirchhoff
 
 def test_straight_line():
     
@@ -36,7 +40,7 @@ def test_straight_line():
     x_arr[0, :] = np.linspace(0, 1, N)
     L0 = 1.0
         
-    sbt = SBT_Matrix(N, L0=L0)
+    sbt = SBT_MatrixKirchhoff(N, L0=L0)
     sbt.update_shape(x_arr)
                 
     M = int(1e1)
@@ -51,7 +55,7 @@ def test_straight_line():
         
     for i, alpha in enumerate(alpha_arr): 
 
-        sbt.R0 = sbt.L0 * alpha / 2
+        sbt.alpha = alpha
 
         u_arr_1 = sbt.compute_u_trapezoid(f_arr)
         u_arr_2 = sbt.compute_u_matrix_vector_product(f_arr, method='vectorized')
@@ -104,19 +108,14 @@ def test_semicircle():
     f_arr = f(u_arr)
     
     gen = ShapeGenerator(N, centreline = 'semicircle')
-            
-    x_arr = gen.x_vec_arr
-            
-    sbt = SBT_Matrix(N)
-    sbt.update_shape(x_arr)
+                        
+    sbt = SBT_MatrixKirchhoff(N)
+    sbt.update_shape(gen.r_arr)
         
-    inti = SBT_Integrator(N,
-                          gen.x_vec,
-                          gen.abs_x_u,
-                          gen.s,
-                          gen.t,
-                          f)
-
+    inti = SBT_IntegratorKirchhoff(N,
+                                   gen.r,
+                                   gen.t,
+                                   f)                                   
 
 
     u_arr_0 = inti.compute_u()
@@ -166,39 +165,105 @@ def test_semicircle():
                                                 
     return
 
-def time_methods():    
-            
-    gen = ShapeGenerator(N, centreline = 'semicircle')
-            
-    x_arr = gen.x_vec_arr
-            
-    sbt = SBT_Matrix(N)
-    sbt.update_shape(x_arr)
+def test_Kirchhoff_Cosserat():
+        
+    shape = ShapeGenerator(N, centreline = 'semicircle')
 
-    M_vec = sbt.compute_M(method = 'vectorized')
-    M_loop = sbt.compute_M(method = 'loop')
+    n = 2 
+    a_n = np.array([1, 1, 1])
 
-    assert np.all(np.isclose(M_loop, M_vec))
+    def f(u):
+        
+        p_n = legendre(n)
+        x = 2*(u-0.5)
+        
+        #TODO: Pass coefficents as parameter?       
+        f1 = a_n[0]*p_n(x)
+        f2 = a_n[1]*p_n(x)
+        f3 = a_n[2]*p_n(x)
+                
+        f = np.vstack((f1,f2,f3))
+        
+        if isinstance(u, float):
+            f = f.flatten()
+                
+        return f
+        
+    inti_kirch = SBT_IntegratorKirchhoff(N,
+                                         shape.r,
+                                         shape.t,
+                                         f)
 
-    M = 10
+
+    inti_coss = SBT_IntegratorCosserat(N,                  
+                                       shape.r,
+                                       shape.s,
+                                       shape.e, 
+                                       shape.t,
+                                       f,
+                                       shape.phi, 
+                                       shape.d1,
+                                       shape.d2,
+                                       shape.d3)
+
+    s_arr = np.linspace(0, 1, N)    
+    f_arr = f(s_arr)
+
+    sbt_kirch = SBT_MatrixKirchhoff(N)
+    sbt_kirch.update_shape(shape.r_arr)
+
+    sbt_coss = SBT_MatrixCosserat(N)
+    sbt_coss.update_shape(shape.r_arr, shape.Q_arr)
+            
+    u1_arr = inti_kirch.compute_u()    
+    u2_arr = inti_coss.compute_u()
+    u3_arr = sbt_kirch.compute_u_matrix_vector_product(f_arr)
+    u4_arr = sbt_coss.compute_u_matrix_vector_product(f_arr)
     
-    timer = Timer(lambda: sbt.compute_M(method = 'vectorized'))
-    print(f'Compute M vectorized: {timer.timeit(M)/M}')
+    assert np.allclose(u1_arr, u2_arr, atol = 1e-3)
+    assert np.allclose(u3_arr, u4_arr, atol = 1e-3)
+    assert np.allclose(u1_arr, u3_arr, atol = 1e-3)
 
-    timer = Timer(lambda: sbt.compute_M(method = 'loop'))
-    print(f'Compute M loop: {timer.timeit(M)/M}')
-
-    print('Passed test!')
+    print('''Passed test: Integrator implementation for Kirchoff and 
+    Cosserat rod give same result for semicirlce configuration without shear or stretch
+    for a quadratice force line density''')    
 
     return
 
+# def time_methods():    
+#
+#     gen = ShapeGenerator(N, centreline = 'semicircle')
+#
+#     x_arr = gen.x_vec_arr
+#
+#     sbt = SBT_Matrix(N)
+#     sbt.update_shape(x_arr)
+#
+#     M_vec = sbt.compute_M(method = 'vectorized')
+#     M_loop = sbt.compute_M(method = 'loop')
+#
+#     assert np.all(np.isclose(M_loop, M_vec))
+#
+#     M = 10
+#
+#     timer = Timer(lambda: sbt.compute_M(method = 'vectorized'))
+#     print(f'Compute M vectorized: {timer.timeit(M)/M}')
+#
+#     timer = Timer(lambda: sbt.compute_M(method = 'loop'))
+#     print(f'Compute M loop: {timer.timeit(M)/M}')
+#
+#     print('Passed test!')
+#
+#     return
+
 if __name__ == '__main__':
     
-    N = 129    
+    N = 129
     
-    test_straight_line()
-    test_semicircle()
-
+    #test_straight_line()
+    #test_semicircle()
+    test_Kirchhoff_Cosserat()
+    
     #time_methods()
     
 

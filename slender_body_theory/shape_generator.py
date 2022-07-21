@@ -13,6 +13,7 @@ class ShapeGenerator():
     def __init__(self, 
                  N, 
                  centreline = 'semicircle',
+                 shape_functions = 'elliptic',
                  L = 1.0):                 
         '''        
         :param N:
@@ -22,7 +23,7 @@ class ShapeGenerator():
         self.N = N
         
         self.u_arr = np.linspace(0, 1, N)
-        self.du = self.u_arr[1] - self.u_arr[0]
+        self.ds_h = self.u_arr[1] - self.u_arr[0]
                         
         self.L = L
                                         
@@ -35,10 +36,15 @@ class ShapeGenerator():
             assert False, 'Not supported yet' 
             pass
         else:
-            assert False, 'wrong centreline'
+            assert False, 'centreline configuration not supported'
+
+        if shape_functions == 'elliptic':            
+            self.phi = lambda u: np.sqrt(1 - (2*u - 1)**2) + 1e-10
+        else:
+            assert False, 'cross-sectional radius shape function not supported'
 
         self.init_vector_representation()
-                                
+                            
         return
     
     def init_straight_line(self):
@@ -53,13 +59,17 @@ class ShapeGenerator():
         
         self.s = lambda u: u
         
-        self.x_vec = lambda u: np.array([self.x(u), self.y(u), self.z(u)])
+        self.r = lambda u: np.array([self.x(u), self.y(u), self.z(u)])
         
         self.tx = lambda u: 1 + 0*u
         self.ty = lambda u: 0*u
         self.tz = lambda u: 0*u
         
         self.t = lambda u: np.array([self.tx(u), self.ty(u), self.tz(u)])
+                        
+        self.d1 = lambda u: np.array([0,1,0])
+        self.d2 = lambda u: np.array([0,0,1])
+        self.d3 = lambda u: np.array([1,0,0])
         
         return
                     
@@ -71,22 +81,29 @@ class ShapeGenerator():
         self.R = self.L/np.pi
         self.k = self.L/self.R
 
+        # dimensionless coordinates
         self.x = lambda u: self.R*np.cos(self.k*u)
         self.y = lambda u: self.R*np.sin(self.k*u)
         self.z = lambda u: 0*u
         
         self.s = lambda u: self.R*self.k * u
         
-        self.x_vec = lambda u: np.array([self.x(u), self.y(u), self.z(u)])
+        self.r = lambda u: np.array([self.x(u), self.y(u), self.z(u)]) / self.L
         
         self.tx = lambda u: - np.sin(self.k*u)
         self.ty = lambda u: + np.cos(self.k*u)
         self.tz = lambda u: 0 * u 
 
-        self.abs_x_u = lambda u: self.R*self.k 
-
         self.t = lambda u: np.array([self.tx(u), self.ty(u), self.tz(u)])
-                                                                      
+        
+        self.e = lambda u: 1.0 + 0*u
+                          
+        self.d1 = lambda u: np.vstack([-np.cos(self.k*u), -np.sin(self.k*u), 0*u])
+        self.d2 = lambda u: np.vstack([0*u,0*u,1+0*u])
+        self.d3 = self.t
+                      
+        return
+        
     def init_vector_representation(self):
         '''
         Computes vector representation of the centreline, arc-length and tangent 
@@ -97,7 +114,7 @@ class ShapeGenerator():
         self.y_arr = self.y(self.u_arr)
         self.z_arr = self.z(self.u_arr)
                 
-        self.x_vec_arr = np.vstack((self.x_arr, self.y_arr, self.z_arr))
+        self.r_arr = np.vstack((self.x_arr, self.y_arr, self.z_arr))
         
         self.tx_arr = self.tx(self.u_arr)
         self.ty_arr = self.ty(self.u_arr)
@@ -108,7 +125,16 @@ class ShapeGenerator():
         self.s_arr = self.s(self.u_arr)
 
         self.tt_arr = self.compute_tt()
-                        
+        
+        self.d1_arr = self.d1(self.u_arr)
+        self.d2_arr = self.d2(self.u_arr)
+        self.d3_arr = self.d3(self.u_arr)
+                       
+        self.Q_arr = np.zeros((3, 3, self.N))
+        self.Q_arr[0, :, :] = self.d1_arr
+        self.Q_arr[1, :, :] = self.d2_arr
+        self.Q_arr[2, :, :] = self.d3_arr
+        
         return
 
     def compute_tt(self):
