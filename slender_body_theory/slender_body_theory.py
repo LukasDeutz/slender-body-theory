@@ -137,7 +137,7 @@ class SBT_Matrix(ABC):
             M1 = self.compute_M1_loop()
             M2 = self.compute_M2_loop()
                                             
-        M =  - self.C * ( M0 + M1 + M2 ) / (np.pi * 8 * self.mu)
+        M =  - self.C * ( M0 + M1 + M2 ) / (np.pi * 8) #* self.mu)
         
         return M
         
@@ -391,12 +391,12 @@ class SBT_MatrixCosserat(SBT_Matrix):
         '''                        
         :return M0: matrix represensation of local sbt term
         '''
-
-        beta = self.L / self.L0        
         
-        z = 2*self.s_arr - 1
+        l = 0.5*self.L
+        z = self.s_arr - l                 
+        # z = 2*self.s_arr - 1
                 
-        ln = np.log(4 * self.e_arr * self.t3_arr**2 * (beta**2 - z**2) / (self.alpha**2 * self.phi_arr**2))
+        ln = np.log(16 * self.e_arr * self.t3_arr**2 * (l**2 - z**2) / (self.alpha**2 * self.phi_arr**2))
 
         #TODO:
         # force rod at the ends to be a prolate spheroid
@@ -410,7 +410,10 @@ class SBT_MatrixCosserat(SBT_Matrix):
         ln = np.repeat(ln, 3)
                                                 
         M0 = ln[:, None] * (self.I + self.T) + (self.I - D3D3) - (D1D3 + D1D3.T + D2D3 + D2D3.T) 
-                                                                 
+
+        if not np.isfinite(M0).all():
+            assert False
+                                                             
         return M0
 
     def compute_A1(self):

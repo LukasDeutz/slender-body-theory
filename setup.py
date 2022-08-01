@@ -16,7 +16,7 @@ setup(
     author_email = 'scld@leeds.ac.uk',
     description = 'Implements slender body theory',
     long_description = read('README.md'),
-    url = 'https://github.com/LukasDeutz/parameter-scan.git',
+    url = 'https://github.com/LukasDeutz/slender-body-theory.git',
     packages = find_packages()
 )
 
