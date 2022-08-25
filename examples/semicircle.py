@@ -55,7 +55,7 @@ def plot_semi_circle():
         
         inti = SBT_Integrator(N,
                               gen.x_vec,
-                              gen.abs_x_u,
+                              gen.e,
                               gen.s,
                               gen.t,
                               f)
